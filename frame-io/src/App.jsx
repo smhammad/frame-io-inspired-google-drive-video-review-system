@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "./components/ui/card";
 import Button from "./components/ui/button";
 import Input from "./components/ui/input";
@@ -12,12 +12,35 @@ import CommentSidebar from "./components/CommentSidebar";
 import TimelineMarkers from "./components/TimelineMarkers";
 import ExportButton from "./components/ExportButton";
 import useComments from "./hooks/useComments";
+import { encodeShare, decodeShare } from "./utils/shareUtils";
+import ShareModal from "./components/ShareModal";
 
 export default function App() {
   const videoRef = useRef(null);
   const [videoUrl, setVideoUrl] = useState("");
   const [duration, setDuration] = useState(1);
   const { comments, addComment, deleteComment, exportComments, clearAll } = useComments();
+  const [shareUrl, setShareUrl] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
+
+  // If the app is opened with a share payload, load the video and comments
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const s = params.get('share');
+      if (!s) return;
+      const payload = decodeShare(s);
+      if (!payload) return;
+      if (payload.videoUrl) setVideoUrl(payload.videoUrl);
+      if (Array.isArray(payload.comments) && payload.comments.length) {
+        // replace existing comments with shared ones
+        clearAll();
+        payload.comments.forEach((c) => addComment(c));
+      }
+    } catch (err) {
+      console.warn('failed to load share payload', err);
+    }
+  }, []);
 
   const seek = (t) => {
     const v = videoRef.current;
@@ -30,11 +53,35 @@ export default function App() {
   const headerRight = useMemo(() => (
     <div className="flex items-center gap-2">
       <ExportButton comments={comments} exportComments={exportComments} />
+      {videoUrl && (
+        <Button
+          variant="ghost"
+          onClick={() => {
+            try {
+              const payload = {
+                videoUrl,
+                comments: comments.map((c) => ({ time: c.time, text: c.text }))
+              };
+              const code = encodeShare(payload);
+              if (!code) throw new Error('encoding failed');
+              const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(code)}`;
+              setShareUrl(url);
+              setShareOpen(true);
+            } catch (err) {
+              console.error('failed to generate share link', err);
+              alert('Failed to generate share link');
+            }
+          }}
+        >
+          Share
+        </Button>
+      )}
       <Button variant="ghost" onClick={clearAll} title="Clear local comments">
         <Trash2 className="w-4 h-4 mr-2" /> Clear
       </Button>
+      <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} url={shareUrl} />
     </div>
-  ), [comments]);
+  ), [comments, videoUrl, shareOpen, shareUrl]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
