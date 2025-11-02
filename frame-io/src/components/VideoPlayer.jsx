@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useRef, useState } from "react";
+import CommentEditor from "./CommentEditor";
 
 /**
  * Exposes native <video> ref to parent via forwardRef.
@@ -51,41 +52,44 @@ const VideoPlayer = forwardRef(function VideoPlayer({ videoUrl, onAddComment, on
     const video = innerRef.current;
     if (!video) return;
     console.debug('[VideoPlayer] pause event, currentTime=', video.currentTime);
-    const text = prompt("Add a comment for this frame:");
-    if (!text) return;
 
-  // capture frame to base64 jpeg
-  const canvas = document.createElement("canvas");
-  // scale down large videos and cap max width to keep thumbnails small for localStorage
-  const preferredScale = 0.5;
-  const maxWidth = 640; // cap width to ~640px
-  const rawWidth = Math.max(1, Math.floor(video.videoWidth * preferredScale));
-  const width = Math.min(rawWidth, maxWidth);
-  const height = Math.max(1, Math.floor((video.videoHeight * width) / video.videoWidth));
-  canvas.width = width;
-  canvas.height = height;
+    // capture frame to base64 jpeg for preview in editor (may fail due to CORS)
+    const canvas = document.createElement("canvas");
+    const preferredScale = 0.5;
+    const maxWidth = 640;
+    const rawWidth = Math.max(1, Math.floor(video.videoWidth * preferredScale));
+    const width = Math.min(rawWidth, maxWidth);
+    const height = Math.max(1, Math.floor((video.videoHeight * width) / video.videoWidth));
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext("2d");
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  // lower quality to reduce size further
-    let image = null;
+
+    let image = undefined;
     try {
       image = canvas.toDataURL("image/jpeg", 0.7);
     } catch (err) {
-      // Canvas may be tainted due to cross-origin video; fall back to saving comment without image
-      console.warn('[VideoPlayer] failed to export canvas image (canvas may be tainted):', err);
+      console.warn('[VideoPlayer] snapshot blocked (CORS):', err);
       image = undefined;
-      // show a simple alert to inform the user once
-      try { alert('Snapshot blocked by cross-origin restrictions. Comment will be saved without an image. Use the local proxy or enable public sharing in Drive to allow snapshots.'); } catch {}
     }
 
-    const comment = {
-      time: video.currentTime,
-      text,
-      image
-    };
-    console.debug('[VideoPlayer] adding comment', comment);
-    onAddComment?.(comment);
+    setEditorState({ open: true, time: video.currentTime, image });
   };
+
+  const [editorState, setEditorState] = useState({ open: false, time: 0, image: undefined });
+  const [savedToast, setSavedToast] = useState(false);
+
+  const handleEditorSave = (c) => {
+    // c: { time, text, image }
+    console.debug('[VideoPlayer] editor save', c);
+    onAddComment?.(c);
+    setEditorState({ open: false, time: 0, image: undefined });
+    // show quick confirmation
+    setSavedToast(true);
+    setTimeout(() => setSavedToast(false), 1500);
+  };
+
+  const handleEditorCancel = () => setEditorState({ open: false, time: 0, image: undefined });
 
   return (
     <div className="relative">
@@ -100,6 +104,15 @@ const VideoPlayer = forwardRef(function VideoPlayer({ videoUrl, onAddComment, on
         className="w-full rounded-xl2 border border-border shadow-soft"
         style={{ aspectRatio: "16 / 9", background: "linear-gradient(180deg,#0f131a,#0b0b0d)" }}
       />
+
+      <CommentEditor open={editorState.open} time={editorState.time} image={editorState.image} onSave={handleEditorSave} onCancel={handleEditorCancel} />
+
+      {/* simple saved toast */}
+      {savedToast && (
+        <div className="absolute right-4 bottom-4 bg-green-600 text-white px-3 py-2 rounded shadow">
+          Comment saved
+        </div>
+      )}
 
     {loadError && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white p-4 text-center">
