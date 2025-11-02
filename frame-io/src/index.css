@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Smooth scroll and font rendering */
+:root { color-scheme: dark; }
+* { @apply antialiased; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #222832; border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }
