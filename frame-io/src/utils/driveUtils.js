@@ -21,11 +21,15 @@ export function convertDriveLink(url) {
     // The "uc?export=download" endpoint streams fine for <video>
     const uc = `https://drive.google.com/uc?export=download&id=${id}`;
 
-    // During local development, optionally route through a local proxy to avoid CORS.
-    // You can override the proxy origin with VITE_LOCAL_PROXY in your .env (e.g. VITE_LOCAL_PROXY=http://localhost:3001)
-    // Vite exposes import.meta.env.DEV for dev mode.
+    // Use the Vercel API proxy in production so the deployed app can stream Drive files
     try {
-      // Vite exposes import.meta.env.DEV in dev mode
+      if (import.meta?.env?.PROD) {
+        // relative path -> same origin on deployed site (e.g. https://your-app.vercel.app/api/proxy)
+        return `/api/proxy?url=${encodeURIComponent(uc)}`;
+      }
+
+      // During local development, optionally route through a local proxy to avoid CORS.
+      // You can override the proxy origin with VITE_LOCAL_PROXY in your .env (e.g. VITE_LOCAL_PROXY=http://localhost:3001)
       if (import.meta?.env?.DEV) {
         const proxyOrigin = import.meta.env.VITE_LOCAL_PROXY || 'http://localhost:3001';
         return `${proxyOrigin}/proxy?url=${encodeURIComponent(uc)}`;
