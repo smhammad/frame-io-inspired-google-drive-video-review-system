@@ -25,6 +25,9 @@ export default function ShareModal({ open, onClose, url }) {
 
         <div className="mb-4">
           <input readOnly value={url} className="w-full p-2 rounded border border-border bg-muted/5 text-sm" />
+          <p className="text-sm text-muted-foreground mt-2">
+            All comments and changes will sync automatically in real-time for anyone with this link.
+          </p>
         </div>
 
         <div className="flex gap-2 justify-end">

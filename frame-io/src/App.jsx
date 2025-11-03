@@ -23,20 +23,16 @@ export default function App() {
   const [shareUrl, setShareUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
 
-  // If the app is opened with a share payload, load the video and comments
+  // If the app is opened with a share payload, load the video URL
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const s = params.get('share');
       if (!s) return;
       const payload = decodeShare(s);
-      if (!payload) return;
-      if (payload.videoUrl) setVideoUrl(payload.videoUrl);
-      if (Array.isArray(payload.comments) && payload.comments.length) {
-        // replace existing comments with shared ones
-        clearAll();
-        payload.comments.forEach((c) => addComment(c));
-      }
+      if (!payload || !payload.videoUrl) return;
+      
+      setVideoUrl(payload.videoUrl);
     } catch (err) {
       console.warn('failed to load share payload', err);
     }
@@ -58,10 +54,7 @@ export default function App() {
           variant="ghost"
           onClick={() => {
             try {
-              const payload = {
-                videoUrl,
-                comments: comments.map((c) => ({ time: c.time, text: c.text }))
-              };
+              const payload = { videoUrl };
               const code = encodeShare(payload);
               if (!code) throw new Error('encoding failed');
               const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(code)}`;
