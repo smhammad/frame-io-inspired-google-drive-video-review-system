@@ -34,7 +34,11 @@ export default function useComments(videoUrl) {
       return;
     }
 
-    loadComments();
+    // Only load comments from Drive if we don't have any initial comments
+    // This prevents overwriting comments that came from the share URL
+    if (comments.length === 0) {
+      loadComments();
+    }
   }, [fileId]);
 
   // Set up polling for real-time updates

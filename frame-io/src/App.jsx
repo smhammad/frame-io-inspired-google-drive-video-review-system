@@ -12,7 +12,7 @@ import CommentSidebar from "./components/CommentSidebar";
 import TimelineMarkers from "./components/TimelineMarkers";
 import ExportButton from "./components/ExportButton";
 import useComments from "./hooks/useComments";
-import { encodeShare, decodeShare } from "./utils/shareUtils";
+import { generateShareableLink, decodeShare } from "./utils/shareUtils";
 import ShareModal from "./components/ShareModal";
 
 export default function App() {
@@ -23,7 +23,7 @@ export default function App() {
   const [shareUrl, setShareUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
 
-  // If the app is opened with a share payload, load the video URL
+  // If the app is opened with a share payload, load the video URL and comments
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -32,7 +32,14 @@ export default function App() {
       const payload = decodeShare(s);
       if (!payload || !payload.videoUrl) return;
       
+      // Set video URL first
       setVideoUrl(payload.videoUrl);
+      
+      // If there are comments in the payload, add them to the state
+      if (payload.comments && Array.isArray(payload.comments)) {
+        clearAll(); // Clear existing comments first
+        payload.comments.forEach(comment => addComment(comment));
+      }
     } catch (err) {
       console.warn('failed to load share payload', err);
     }
@@ -54,11 +61,9 @@ export default function App() {
           variant="ghost"
           onClick={() => {
             try {
-              const payload = { videoUrl };
-              const code = encodeShare(payload);
-              if (!code) throw new Error('encoding failed');
-              const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(code)}`;
-              setShareUrl(url);
+              const shareableUrl = generateShareableLink(videoUrl, comments);
+              if (!shareableUrl) throw new Error('encoding failed');
+              setShareUrl(shareableUrl);
               setShareOpen(true);
             } catch (err) {
               console.error('failed to generate share link', err);

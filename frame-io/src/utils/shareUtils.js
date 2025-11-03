@@ -1,14 +1,15 @@
 import { getDriveFileId } from "./driveComments";
 
-// Generate a shareable link that only includes the video URL
-export function generateShareableLink(videoUrl) {
+// Generate a shareable link that includes the video URL and comments
+export function generateShareableLink(videoUrl, comments = []) {
   try {
     // Get the current URL without query parameters
     const baseUrl = window.location.href.split('?')[0];
     
-    // Create a minimal share payload with just the video URL
+    // Create the share payload with video URL and comments
     const payload = {
       videoUrl,
+      comments,
       timestamp: new Date().toISOString(),
     };
     
