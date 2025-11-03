@@ -1,64 +1,47 @@
-import { useEffect, useState } from "react";
-import { getDriveFileId, fetchCommentsFromDrive, saveCommentsToDrive } from "../utils/driveComments";
+import { useEffect, useState, useRef } from "react";
+import { CommentSync } from "../utils/commentSync";
 
 export default function useComments(videoUrl) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState(null);
-  const fileId = getDriveFileId(videoUrl);
+  const syncRef = useRef(null);
 
-  // Function to load comments from Drive
-  const loadComments = async () => {
-    if (!fileId) return;
-    try {
-      const fetchedComments = await fetchCommentsFromDrive(fileId);
-      
-      // Only update if there are changes
-      if (JSON.stringify(fetchedComments) !== JSON.stringify(comments)) {
-        console.log('[useComments] New comments detected, updating state');
-        setComments(fetchedComments);
-        setLastUpdate(new Date().toISOString());
-      }
-    } catch (error) {
-      console.error('[useComments] Failed to fetch comments:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initial load
+  // Initialize comment sync
   useEffect(() => {
-    if (!fileId) {
+    if (!videoUrl) {
       setComments([]);
       setLoading(false);
       return;
     }
 
-    // Only load comments from Drive if we don't have any initial comments
-    // This prevents overwriting comments that came from the share URL
-    if (comments.length === 0) {
-      loadComments();
-    }
-  }, [fileId]);
+    // Create new sync instance
+    const sync = new CommentSync(videoUrl);
+    syncRef.current = sync;
 
-  // Set up polling for real-time updates
-  useEffect(() => {
-    if (!fileId) return;
-
-    const pollInterval = setInterval(loadComments, 5000); // Poll every 5 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [fileId, lastUpdate]);
-
-  useEffect(() => {
-    if (!fileId || loading) return;
-
-    const saveComments = async () => {
-      await saveCommentsToDrive(fileId, comments);
+    // Set up update handler
+    sync.onUpdate = (newComments) => {
+      console.log('[useComments] Received sync update');
+      setComments(newComments);
     };
 
-    saveComments();
-  }, [comments, fileId, loading]);
+    // Load initial comments
+    const initialComments = sync.init();
+    setComments(initialComments);
+    setLoading(false);
+
+    // Cleanup
+    return () => {
+      sync.destroy();
+      syncRef.current = null;
+    };
+  }, [videoUrl]);
+
+  // Sync comments when they change locally
+  useEffect(() => {
+    if (!loading && syncRef.current) {
+      syncRef.current.updateComments(comments);
+    }
+  }, [comments, loading]);
 
   const addComment = async (comment) => {
     // Remove image data if present to avoid storage issues
@@ -68,6 +51,7 @@ export default function useComments(videoUrl) {
       ...commentWithoutImage,
       resolved: false,
       createdAt: new Date().toISOString(),
+      id: Date.now().toString(), // Add unique ID for reliable updates
     };
     
     setComments((prev) => [...prev, newComment]);
