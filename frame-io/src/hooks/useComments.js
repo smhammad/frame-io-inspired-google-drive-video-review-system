@@ -1,71 +1,89 @@
 import { useEffect, useState } from "react";
-import { db } from "../lib/firebase";
-import { ref, onValue, set, push, remove, update } from "firebase/database";
-import { getDriveFileId } from "../utils/driveComments";
+import { getDriveFileId, fetchCommentsFromDrive, saveCommentsToDrive } from "../utils/driveComments";
 
-
+export default function useComments(videoUrl) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(null);
   const fileId = getDriveFileId(videoUrl);
 
-  // Listen for real-time updates from Firebase
+  // Function to load comments from Drive
+  const loadComments = async () => {
+    if (!fileId) return;
+    try {
+      const fetchedComments = await fetchCommentsFromDrive(fileId);
+      
+      // Only update if there are changes
+      if (JSON.stringify(fetchedComments) !== JSON.stringify(comments)) {
+        console.log('[useComments] New comments detected, updating state');
+        setComments(fetchedComments);
+        setLastUpdate(new Date().toISOString());
+      }
+    } catch (error) {
+      console.error('[useComments] Failed to fetch comments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load
   useEffect(() => {
     if (!fileId) {
       setComments([]);
       setLoading(false);
       return;
     }
-    setLoading(true);
-    const commentsRef = ref(db, `comments/${fileId}`);
-    const unsubscribe = onValue(commentsRef, (snapshot) => {
-      const val = snapshot.val() || {};
-      // Convert object to array with id
-      const arr = Object.entries(val).map(([id, c]) => ({ ...c, id }));
-      setComments(arr);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+
+    loadComments();
   }, [fileId]);
 
-
-  // Add a new comment
-  const addComment = async (comment) => {
+  // Set up polling for real-time updates
+  useEffect(() => {
     if (!fileId) return;
+
+    const pollInterval = setInterval(loadComments, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [fileId, lastUpdate]);
+
+  useEffect(() => {
+    if (!fileId || loading) return;
+
+    const saveComments = async () => {
+      await saveCommentsToDrive(fileId, comments);
+    };
+
+    saveComments();
+  }, [comments, fileId, loading]);
+
+  const addComment = async (comment) => {
+    // Remove image data if present to avoid storage issues
     const { image, ...commentWithoutImage } = comment;
+    
     const newComment = {
       ...commentWithoutImage,
       resolved: false,
       createdAt: new Date().toISOString(),
     };
-    const commentsRef = ref(db, `comments/${fileId}`);
-    await push(commentsRef, newComment);
+    
+    setComments((prev) => [...prev, newComment]);
   };
 
-
-  // Delete a comment by id
-  const deleteComment = async (id) => {
-    if (!fileId || !id) return;
-    const commentRef = ref(db, `comments/${fileId}/${id}`);
-    await remove(commentRef);
+  const deleteComment = (index) => {
+    setComments((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-
-  // Toggle resolved state by id
-  const toggleResolved = async (id) => {
-    if (!fileId || !id) return;
-    const commentRef = ref(db, `comments/${fileId}/${id}`);
-    const comment = comments.find((c) => c.id === id);
-    if (!comment) return;
-    await update(commentRef, { resolved: !comment.resolved });
+  const toggleResolved = (index) => {
+    setComments((prev) => 
+      prev.map((comment, idx) => 
+        idx === index 
+          ? { ...comment, resolved: !comment.resolved }
+          : comment
+      )
+    );
   };
 
-
-  // Remove all comments for this video
-  const clearAll = async () => {
-    if (!fileId) return;
-    const commentsRef = ref(db, `comments/${fileId}`);
-    await set(commentsRef, null);
-  };
+  const clearAll = () => setComments([]);
 
   const exportComments = (rows) => {
     const header = "timestamp_seconds,timestamp_hhmmss,comment,status\n";
