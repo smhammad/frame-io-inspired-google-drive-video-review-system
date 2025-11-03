@@ -53,27 +53,12 @@ const VideoPlayer = forwardRef(function VideoPlayer({ videoUrl, onAddComment, on
     if (!video) return;
     console.debug('[VideoPlayer] pause event, currentTime=', video.currentTime);
 
-    // capture frame to base64 jpeg for preview in editor (may fail due to CORS)
-    const canvas = document.createElement("canvas");
-    const preferredScale = 0.5;
-    const maxWidth = 640;
-    const rawWidth = Math.max(1, Math.floor(video.videoWidth * preferredScale));
-    const width = Math.min(rawWidth, maxWidth);
-    const height = Math.max(1, Math.floor((video.videoHeight * width) / video.videoWidth));
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    let image = undefined;
-    try {
-      image = canvas.toDataURL("image/jpeg", 0.7);
-    } catch (err) {
-      console.warn('[VideoPlayer] snapshot blocked (CORS):', err);
-      image = undefined;
-    }
-
-    setEditorState({ open: true, time: video.currentTime, image });
+    // Disabled snapshot feature to save storage and improve sharing
+    setEditorState({ 
+      open: true, 
+      time: video.currentTime, 
+      image: undefined 
+    });
   };
 
   const [editorState, setEditorState] = useState({ open: false, time: 0, image: undefined });

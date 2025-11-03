@@ -1,5 +1,13 @@
 import Button from "./ui/button";
 
+function toHHMMSS(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  const pad = (n) => (n < 10 ? "0" + n : n);
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
 export default function CommentItem({ data, onDelete, onSeek, onToggleResolved }) {
   return (
     <div className={`border border-border/60 rounded-xl p-3 ${
@@ -8,14 +16,16 @@ export default function CommentItem({ data, onDelete, onSeek, onToggleResolved }
         : 'bg-accent/30 hover:bg-accent/50'
     } transition`}>
       <div className="flex gap-3">
-        <img
-          src={data.image}
-          alt="frame"
-          className={`w-24 h-16 object-cover rounded-lg cursor-pointer ${
+        <div
+          className={`w-24 h-16 rounded-lg cursor-pointer flex items-center justify-center bg-black/40 ${
             data.resolved ? 'opacity-70' : ''
           }`}
           onClick={() => onSeek(data.time)}
-        />
+        >
+          <span className="text-sm font-mono opacity-75">
+            {toHHMMSS(data.time)}
+          </span>
+        </div>
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <TimeBadge time={data.time} onClick={() => onSeek(data.time)} />

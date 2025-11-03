@@ -4,8 +4,29 @@ import { getDriveFileId, fetchCommentsFromDrive, saveCommentsToDrive } from "../
 export default function useComments(videoUrl) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(null);
   const fileId = getDriveFileId(videoUrl);
 
+  // Function to load comments from Drive
+  const loadComments = async () => {
+    if (!fileId) return;
+    try {
+      const fetchedComments = await fetchCommentsFromDrive(fileId);
+      
+      // Only update if there are changes
+      if (JSON.stringify(fetchedComments) !== JSON.stringify(comments)) {
+        console.log('[useComments] New comments detected, updating state');
+        setComments(fetchedComments);
+        setLastUpdate(new Date().toISOString());
+      }
+    } catch (error) {
+      console.error('[useComments] Failed to fetch comments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load
   useEffect(() => {
     if (!fileId) {
       setComments([]);
@@ -13,15 +34,17 @@ export default function useComments(videoUrl) {
       return;
     }
 
-    const loadComments = async () => {
-      setLoading(true);
-      const fetchedComments = await fetchCommentsFromDrive(fileId);
-      setComments(fetchedComments);
-      setLoading(false);
-    };
-
     loadComments();
   }, [fileId]);
+
+  // Set up polling for real-time updates
+  useEffect(() => {
+    if (!fileId) return;
+
+    const pollInterval = setInterval(loadComments, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [fileId, lastUpdate]);
 
   useEffect(() => {
     if (!fileId || loading) return;
@@ -34,8 +57,11 @@ export default function useComments(videoUrl) {
   }, [comments, fileId, loading]);
 
   const addComment = async (comment) => {
+    // Remove image data if present to avoid storage issues
+    const { image, ...commentWithoutImage } = comment;
+    
     const newComment = {
-      ...comment,
+      ...commentWithoutImage,
       resolved: false,
       createdAt: new Date().toISOString(),
     };
