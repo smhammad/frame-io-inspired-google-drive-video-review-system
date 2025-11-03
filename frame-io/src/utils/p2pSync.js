@@ -170,11 +170,24 @@ export class P2PSync {
 
   // Update URL hash with signaling data
   _updateHash(data) {
-    const hash = encodeURIComponent(JSON.stringify(data));
-    // Use history.replaceState to update hash without causing navigation
-    const url = new URL(window.location.href);
-    url.hash = hash;
-    history.replaceState(null, '', url.toString());
+    try {
+      const hash = encodeURIComponent(JSON.stringify(data));
+      // Store hash in memory instead of URL
+      this._currentHash = hash;
+      // Only update URL if necessary for new connections
+      if (data.offer && !data.answer) {
+        const currentUrl = new URL(window.location.href);
+        const baseUrl = currentUrl.origin + currentUrl.pathname + currentUrl.search;
+        history.replaceState(null, '', baseUrl);
+      }
+    } catch (err) {
+      console.error('Error updating hash:', err);
+    }
+  }
+  
+  // Get current hash data
+  _getHashData() {
+    return this._currentHash ? JSON.parse(decodeURIComponent(this._currentHash)) : null;
   }
 
   // Clean up connections
