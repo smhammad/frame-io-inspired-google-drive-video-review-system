@@ -1,5 +1,30 @@
-import { P2PSync } from './p2pSync';
+import { P2PSync }   // Initialize sync and return stored comments
+  init() {
+    try {
+      // Get stored comments with validation
+      const stored = localStorage.getItem(this.storageKey);
+      let comments = [];
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        comments = Array.isArray(parsed) ? parsed : [];
+      }
 
+      // Listen for updates from other tabs/windows
+      this.channel.onmessage = (event) => {
+        try {
+          const { type, data } = event.data;
+          // Validate that data is an array before updating
+          if (type === 'update' && Array.isArray(data) && this.onUpdate) {
+            this.onUpdate(data);
+            // Forward to P2P peers
+            this.p2p.broadcast({ type: 'update', data });
+          }
+        } catch (err) {
+          console.error('Error processing message:', err);
+        }
+      };
+
+      return comments;
 // Utility for syncing comments across tabs/windows and P2P connections
 export class CommentSync {
   constructor(videoUrl) {
@@ -73,14 +98,17 @@ export class CommentSync {
   // Update comments and notify all sync channels
   updateComments(comments) {
     try {
+      // Ensure comments is an array
+      const validComments = Array.isArray(comments) ? comments : [];
+      
       // Save to localStorage
-      this._saveToStorage(comments);
+      this._saveToStorage(validComments);
       
       // Broadcast to other tabs/windows
-      this.channel.postMessage({ type: 'update', data: comments });
+      this.channel.postMessage({ type: 'update', data: validComments });
       
       // Broadcast to P2P peers
-      this.p2p.broadcast({ type: 'update', data: comments });
+      this.p2p.broadcast({ type: 'update', data: validComments });
     } catch (err) {
       console.error('Failed to sync comments:', err);
     }

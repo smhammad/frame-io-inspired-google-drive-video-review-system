@@ -6,10 +6,20 @@ export default function useComments(videoUrl) {
   const [loading, setLoading] = useState(true);
   const syncRef = useRef(null);
 
+  // Safe setter for comments that ensures array type
+  const safeSetComments = (newComments) => {
+    if (Array.isArray(newComments)) {
+      setComments(newComments);
+    } else {
+      console.warn('Attempted to set non-array comments:', newComments);
+      setComments([]);
+    }
+  };
+
   // Initialize comment sync
   useEffect(() => {
     if (!videoUrl) {
-      setComments([]);
+      safeSetComments([]);
       setLoading(false);
       return;
     }
@@ -21,12 +31,12 @@ export default function useComments(videoUrl) {
     // Set up update handler
     sync.onUpdate = (newComments) => {
       console.log('[useComments] Received sync update');
-      setComments(newComments);
+      safeSetComments(Array.isArray(newComments) ? newComments : []);
     };
 
     // Load initial comments
     const initialComments = sync.init();
-    setComments(initialComments);
+    safeSetComments(Array.isArray(initialComments) ? initialComments : []);
     setLoading(false);
 
     // Cleanup

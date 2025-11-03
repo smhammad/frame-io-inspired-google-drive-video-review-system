@@ -4,11 +4,14 @@ import CommentItem from "./CommentItem";
 import Badge from "./ui/badge";
 import { useState } from "react";
 
-export default function CommentSidebar({ comments, onDelete, onSeek, onToggleResolved }) {
+export default function CommentSidebar({ comments = [], onDelete, onSeek, onToggleResolved }) {
   const [showResolved, setShowResolved] = useState(true);
   
-  const activeComments = comments.filter(c => !c.resolved);
-  const resolvedComments = comments.filter(c => c.resolved);
+  // Ensure comments is an array
+  const safeComments = Array.isArray(comments) ? comments : [];
+  
+  const activeComments = safeComments.filter(c => !c.resolved);
+  const resolvedComments = safeComments.filter(c => c.resolved);
   
   return (
     <div className="bg-card rounded-2xl border border-border shadow-soft flex flex-col h-[70vh]">
