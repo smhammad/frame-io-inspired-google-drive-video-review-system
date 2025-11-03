@@ -18,26 +18,77 @@ export default function useComments(videoUrl) {
 
   // Initialize comment sync
   useEffect(() => {
-    if (!videoUrl) {
-      safeSetComments([]);
-      setLoading(false);
-      return;
-    }
+    let isActive = true; // Flag to prevent updates after unmount
 
-    // Create new sync instance
-    const sync = new CommentSync(videoUrl);
-    syncRef.current = sync;
+    const initializeSync = async () => {
+      if (!videoUrl) {
+        safeSetComments([]);
+        setLoading(false);
+        return;
+      }
 
-    // Set up update handler
-    sync.onUpdate = (newComments) => {
-      console.log('[useComments] Received sync update');
-      safeSetComments(Array.isArray(newComments) ? newComments : []);
+      try {
+        // Create new sync instance
+        const sync = new CommentSync(videoUrl);
+        
+        // Set up update handler with debounce
+        let updateTimeout;
+        sync.onUpdate = (newComments) => {
+          if (!isActive) return;
+          
+          // Clear any pending update
+          if (updateTimeout) clearTimeout(updateTimeout);
+          
+          // Debounce updates by 100ms
+          updateTimeout = setTimeout(() => {
+            console.log('[useComments] Received sync update');
+            setComments(prev => {
+              // Only update if we have new comments or empty array
+              if (!Array.isArray(newComments)) return prev;
+              if (prev.length === 0) return newComments;
+              if (newComments.length === 0) return prev;
+              
+              // Merge comments, keeping the most recent version of each
+              const merged = [...prev];
+              newComments.forEach(newComment => {
+                const index = merged.findIndex(c => c.id === newComment.id);
+                if (index === -1) {
+                  merged.push(newComment);
+                } else if (newComment.createdAt > merged[index].createdAt) {
+                  merged[index] = newComment;
+                }
+              });
+              return merged;
+            });
+          }, 100);
+        };
+
+        syncRef.current = sync;
+
+        // Load initial comments
+        const initialComments = await sync.init();
+        if (!isActive) return;
+
+        safeSetComments(Array.isArray(initialComments) ? initialComments : []);
+      } catch (err) {
+        console.error('Failed to initialize comments:', err);
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
+      }
     };
 
-    // Load initial comments
-    const initialComments = sync.init();
-    safeSetComments(Array.isArray(initialComments) ? initialComments : []);
-    setLoading(false);
+    initializeSync();
+
+    // Cleanup
+    return () => {
+      isActive = false;
+      if (syncRef.current) {
+        syncRef.current.destroy();
+        syncRef.current = null;
+      }
+    };
 
     // Cleanup
     return () => {

@@ -57,14 +57,37 @@ export class CommentSync {
       // Ensure comments is an array
       const validComments = Array.isArray(comments) ? comments : [];
       
-      // Save to localStorage
-      this._saveToStorage(validComments);
+      // Get existing comments from storage
+      const stored = localStorage.getItem(this.storageKey);
+      let existingComments = [];
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          existingComments = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          console.warn('Failed to parse stored comments:', e);
+        }
+      }
+
+      // Merge comments, keeping the most recent version of each
+      const merged = [...existingComments];
+      validComments.forEach(newComment => {
+        const index = merged.findIndex(c => c.id === newComment.id);
+        if (index === -1) {
+          merged.push(newComment);
+        } else if (newComment.createdAt > merged[index].createdAt) {
+          merged[index] = newComment;
+        }
+      });
       
-      // Broadcast to other tabs/windows
-      this.channel.postMessage({ type: 'update', data: validComments });
+      // Save merged comments to localStorage
+      this._saveToStorage(merged);
+      
+      // Broadcast merged comments
+      this.channel.postMessage({ type: 'update', data: merged });
       
       // Broadcast to P2P peers
-      this.p2p.broadcast({ type: 'update', data: validComments });
+      this.p2p.broadcast({ type: 'update', data: merged });
     } catch (err) {
       console.error('Failed to sync comments:', err);
     }
