@@ -23,7 +23,22 @@ export default function App() {
   const [shareUrl, setShareUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
 
-  // If the app is opened with a share payload, load the video and comments
+  const generateShareLink = async () => {
+    try {
+      const encoded = await encodeShare(videoUrl);
+      if (!encoded) throw new Error('Failed to encode share data');
+      
+      const url = new URL(window.location.href);
+      url.searchParams.set('share', encoded);
+      setShareUrl(url.toString());
+      setShareOpen(true);
+    } catch (err) {
+      console.error('Share link generation failed:', err);
+      alert('Failed to generate share link');
+    }
+  };
+
+  // If the app is opened with a share payload, load the video
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -32,11 +47,6 @@ export default function App() {
       const payload = decodeShare(s);
       if (!payload) return;
       if (payload.videoUrl) setVideoUrl(payload.videoUrl);
-      if (Array.isArray(payload.comments) && payload.comments.length) {
-        // replace existing comments with shared ones
-        clearAll();
-        payload.comments.forEach((c) => addComment(c));
-      }
     } catch (err) {
       console.warn('failed to load share payload', err);
     }

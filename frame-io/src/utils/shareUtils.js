@@ -1,8 +1,27 @@
-// Small helpers to encode/decode share payloads into URL-safe base64
-export function encodeShare(obj) {
+import { getDriveFileId, getCommentsFileId } from './driveComments';
+
+// Create a share payload that includes the comments file ID
+export async function createSharePayload(videoUrl) {
+  const videoFileId = getDriveFileId(videoUrl);
+  if (!videoFileId) return null;
+
+  // Get or create the comments file ID
+  const commentsFileId = await getCommentsFileId(videoFileId);
+  
+  return {
+    videoUrl,
+    commentsFileId,
+    timestamp: new Date().toISOString()
+  };
+}
+
+// Encode share payload into URL-safe base64
+export async function encodeShare(videoUrl) {
   try {
-    const json = JSON.stringify(obj);
-    // btoa/unescape trick to handle UTF-8
+    const payload = await createSharePayload(videoUrl);
+    if (!payload) return null;
+
+    const json = JSON.stringify(payload);
     return btoa(unescape(encodeURIComponent(json)));
   } catch (err) {
     console.error('encodeShare failed', err);
