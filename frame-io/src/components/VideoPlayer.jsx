@@ -17,34 +17,82 @@ const VideoPlayer = forwardRef(function VideoPlayer({ videoUrl, onAddComment, on
   }, [refFromParent]);
 
   useEffect(() => {
+    console.debug('[VideoPlayer] Video URL changed:', videoUrl);
     const v = innerRef.current;
-    if (!v) return;
-    const handleLoaded = () => onDuration?.(v.duration || 1);
+    if (!v) {
+      console.warn('[VideoPlayer] No video element ref');
+      return;
+    }
+
+    const handleLoaded = () => {
+      console.debug('[VideoPlayer] Video metadata loaded, duration:', v.duration);
+      onDuration?.(v.duration || 1);
+    };
+
     v.addEventListener("loadedmetadata", handleLoaded);
     return () => v.removeEventListener("loadedmetadata", handleLoaded);
   }, [videoUrl]);
 
-  // Reset error when url changes
+  // Reset error and update video source when url changes
   useEffect(() => {
+    console.debug('[VideoPlayer] Resetting error state for new URL:', videoUrl);
     setLoadError(null);
+    
+    // Explicitly update video source
+    const v = innerRef.current;
+    if (v && videoUrl) {
+      v.src = videoUrl;
+      v.load(); // Force reload with new source
+    }
   }, [videoUrl]);
 
   // Try to surface network/CORS errors and provide helpful debug info
   const handleError = async (e) => {
-    setLoadError({ message: "Failed to load video." });
+    console.error('[VideoPlayer] Video loading error:', e);
+    
+    if (!videoUrl) {
+      setLoadError({ message: "No video URL provided." });
+      return;
+    }
+
+    setLoadError({ 
+      message: "Failed to load video.", 
+      videoUrl,
+      errorEvent: e.type 
+    });
 
     // Try a lightweight HEAD request to inspect headers (may be blocked by CORS)
     try {
-      const res = await fetch(videoUrl, { method: "HEAD", mode: "cors" });
-      setLoadError((prev) => ({
-        ...prev,
+      console.debug('[VideoPlayer] Checking video URL with HEAD request:', videoUrl);
+      const res = await fetch(videoUrl, { 
+        method: "HEAD", 
+        mode: "cors",
+        headers: {
+          'Range': 'bytes=0-0' // Minimal range request to test stream access
+        }
+      });
+
+      const errorInfo = {
         status: res.status,
         ok: res.ok,
         type: res.headers.get("content-type") || null,
         acceptRanges: res.headers.get("accept-ranges") || null,
+        contentLength: res.headers.get("content-length"),
+      };
+
+      console.debug('[VideoPlayer] HEAD request response:', errorInfo);
+      
+      setLoadError((prev) => ({
+        ...prev,
+        ...errorInfo,
       }));
     } catch (err) {
-      setLoadError((prev) => ({ ...prev, fetchError: String(err) }));
+      console.error('[VideoPlayer] HEAD request failed:', err);
+      setLoadError((prev) => ({ 
+        ...prev, 
+        fetchError: String(err),
+        networkError: true
+      }));
     }
   };
 

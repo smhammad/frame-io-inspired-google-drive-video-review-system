@@ -25,16 +25,29 @@ export default function App() {
 
   const generateShareLink = async () => {
     try {
+      if (!videoUrl) {
+        alert('Please enter a video URL first');
+        return;
+      }
+
+      console.debug('[App] Generating share link for video:', videoUrl);
       const encoded = await encodeShare(videoUrl);
-      if (!encoded) throw new Error('Failed to encode share data');
       
-      const url = new URL(window.location.href);
+      if (!encoded) {
+        console.error('[App] Failed to encode share data');
+        throw new Error('Failed to encode share data');
+      }
+      
+      // Remove any existing share parameter and add the new one
+      const url = new URL(window.location.origin + window.location.pathname);
       url.searchParams.set('share', encoded);
+      
+      console.debug('[App] Generated share URL:', url.toString());
       setShareUrl(url.toString());
       setShareOpen(true);
     } catch (err) {
       console.error('Share link generation failed:', err);
-      alert('Failed to generate share link');
+      alert('Failed to generate share link. Please make sure the video URL is valid.');
     }
   };
 
@@ -43,10 +56,27 @@ export default function App() {
     try {
       const params = new URLSearchParams(window.location.search);
       const s = params.get('share');
-      if (!s) return;
+      if (!s) {
+        console.debug('[App] No share parameter found');
+        return;
+      }
+      
+      console.debug('[App] Decoding share payload:', s);
       const payload = decodeShare(s);
-      if (!payload) return;
-      if (payload.videoUrl) setVideoUrl(payload.videoUrl);
+      
+      if (!payload) {
+        console.warn('[App] Failed to decode share payload');
+        return;
+      }
+      
+      console.debug('[App] Decoded payload:', payload);
+      
+      if (payload.videoUrl) {
+        console.debug('[App] Setting video URL:', payload.videoUrl);
+        setVideoUrl(payload.videoUrl);
+      } else {
+        console.warn('[App] No video URL in payload');
+      }
     } catch (err) {
       console.warn('failed to load share payload', err);
     }
