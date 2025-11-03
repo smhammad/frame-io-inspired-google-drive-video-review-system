@@ -1,26 +1,25 @@
 import { useEffect, useState } from "react";
-import { getDriveFileId, fetchCommentsFromDrive, saveCommentsToDrive } from "../utils/driveComments";
 
 export default function useComments(videoUrl) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState(null);
-  const fileId = getDriveFileId(videoUrl);
+  // Use videoId as a unique key (could be the Google Drive file ID or a hash of the videoUrl)
+  const videoId = videoUrl ? encodeURIComponent(videoUrl) : null;
 
-  // Function to load comments from Drive
+  // Function to load comments from API
   const loadComments = async () => {
-    if (!fileId) return;
+    if (!videoId) return;
+    setLoading(true);
     try {
-      const fetchedComments = await fetchCommentsFromDrive(fileId);
-      
-      // Only update if there are changes
-      if (JSON.stringify(fetchedComments) !== JSON.stringify(comments)) {
-        console.log('[useComments] New comments detected, updating state');
-        setComments(fetchedComments);
-        setLastUpdate(new Date().toISOString());
+      const res = await fetch(`/api/comments/${videoId}`);
+      const data = await res.json();
+      if (Array.isArray(data.comments)) {
+        setComments(data.comments);
+      } else {
+        setComments([]);
       }
-    } catch (error) {
-      console.error('[useComments] Failed to fetch comments:', error);
+    } catch (err) {
+      setComments([]);
     } finally {
       setLoading(false);
     }
@@ -28,44 +27,42 @@ export default function useComments(videoUrl) {
 
   // Initial load
   useEffect(() => {
-    if (!fileId) {
+    if (!videoId) {
       setComments([]);
       setLoading(false);
       return;
     }
-
     loadComments();
-  }, [fileId]);
+  }, [videoId]);
 
-  // Set up polling for real-time updates
+  // Poll for updates every 5 seconds
   useEffect(() => {
-    if (!fileId) return;
-
-    const pollInterval = setInterval(loadComments, 5000); // Poll every 5 seconds
-
+    if (!videoId) return;
+    const pollInterval = setInterval(loadComments, 5000);
     return () => clearInterval(pollInterval);
-  }, [fileId, lastUpdate]);
+  }, [videoId]);
 
+  // Save comments to API when changed
   useEffect(() => {
-    if (!fileId || loading) return;
-
+    if (!videoId || loading) return;
     const saveComments = async () => {
-      await saveCommentsToDrive(fileId, comments);
+      await fetch(`/api/comments/${videoId}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ comments }),
+        }
+      );
     };
-
     saveComments();
-  }, [comments, fileId, loading]);
+  }, [comments, videoId, loading]);
 
-  const addComment = async (comment) => {
-    // Remove image data if present to avoid storage issues
-    const { image, ...commentWithoutImage } = comment;
-    
+  const addComment = (comment) => {
     const newComment = {
-      ...commentWithoutImage,
+      ...comment,
       resolved: false,
       createdAt: new Date().toISOString(),
     };
-    
     setComments((prev) => [...prev, newComment]);
   };
 
