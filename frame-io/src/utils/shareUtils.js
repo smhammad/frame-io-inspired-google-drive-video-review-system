@@ -1,19 +1,15 @@
 import { getDriveFileId } from "./driveComments";
 
-// Generate a shareable link that includes the video URL, comments, and P2P info
+// Generate a shareable link that includes the video URL and comments
 export function generateShareableLink(videoUrl, comments = []) {
   try {
-    // Get the base URL without query parameters or hash
-    const baseUrl = window.location.href.split(/[?#]/)[0];
+    // Get the current URL without query parameters
+    const baseUrl = window.location.href.split('?')[0];
     
-    // Create a unique room ID for P2P sync
-    const roomId = `room-${btoa(videoUrl)}-${Date.now()}`;
-    
-    // Create the share payload with video URL, comments, and room info
+    // Create the share payload with video URL and comments
     const payload = {
       videoUrl,
       comments,
-      roomId,
       timestamp: new Date().toISOString(),
     };
     

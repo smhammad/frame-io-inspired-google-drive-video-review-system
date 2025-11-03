@@ -8,29 +8,10 @@ export default function LinkInput({ onLoad }) {
   const [link, setLink] = useState("");
 
   const handleLoad = (e) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    
-    // Remove any trailing spaces or newlines
-    const trimmedLink = link.trim();
-    if (!trimmedLink) {
-      alert("Please enter a Google Drive link");
-      return false;
-    }
-
-    const playableUrl = convertDriveLink(trimmedLink);
-    if (playableUrl) {
-      // Use setTimeout to ensure form handling is complete
-      setTimeout(() => {
-        onLoad(playableUrl);
-        setLink(""); // Clear input after successful load
-      }, 0);
-    } else {
-      alert("Please paste a valid Google Drive file link (…/file/d/<ID>/view).");
-    }
-    return false;
+    e?.preventDefault?.();
+    const playableUrl = convertDriveLink(link);
+    if (playableUrl) onLoad(playableUrl);
+    else alert("Please paste a valid Google Drive file link (…/file/d/<ID>/view).");
   };
 
   return (

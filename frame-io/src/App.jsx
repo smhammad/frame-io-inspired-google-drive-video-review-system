@@ -23,14 +23,6 @@ export default function App() {
   const [shareUrl, setShareUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
 
-  const handleSetVideoUrl = (url) => {
-    // Prevent URL changes from affecting navigation
-    if (history.pushState) {
-      history.pushState(null, '', window.location.href);
-    }
-    setVideoUrl(url);
-  };
-
   // If the app is opened with a share payload, load the video URL and comments
   useEffect(() => {
     try {
@@ -109,7 +101,7 @@ export default function App() {
       <main className="container mx-auto py-6">
         <Card className="border border-border">
           <CardHeader className="flex flex-col gap-3">
-            <LinkInput onLoad={handleSetVideoUrl} />
+            <LinkInput onLoad={setVideoUrl} />
           </CardHeader>
 
           {videoUrl ? (
