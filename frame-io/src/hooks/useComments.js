@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { CommentSync } from "../utils/commentSync";
+import { CommentSync } from "../utils/commentSync.jsx";
 
 export default function useComments(videoUrl) {
   const [comments, setComments] = useState([]);
