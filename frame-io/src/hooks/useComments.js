@@ -35,30 +35,20 @@ export default function useComments(videoUrl) {
         let updateTimeout;
         sync.onUpdate = (newComments) => {
           if (!isActive) return;
-          
-          // Clear any pending update
           if (updateTimeout) clearTimeout(updateTimeout);
-          
-          // Debounce updates by 100ms
           updateTimeout = setTimeout(() => {
             console.log('[useComments] Received sync update');
             setComments(prev => {
-              // Only update if we have new comments or empty array
               if (!Array.isArray(newComments)) return prev;
-              if (prev.length === 0) return newComments;
-              if (newComments.length === 0) return prev;
-              
-              // Merge comments, keeping the most recent version of each
-              const merged = [...prev];
-              newComments.forEach(newComment => {
-                const index = merged.findIndex(c => c.id === newComment.id);
-                if (index === -1) {
-                  merged.push(newComment);
-                } else if (newComment.createdAt > merged[index].createdAt) {
-                  merged[index] = newComment;
+              // Use a map to deduplicate by id, always keep the latest version
+              const commentMap = new Map();
+              [...prev, ...newComments].forEach(c => {
+                if (!c.id) return;
+                if (!commentMap.has(c.id) || (c.updatedAt && c.updatedAt > (commentMap.get(c.id)?.updatedAt || ''))) {
+                  commentMap.set(c.id, c);
                 }
               });
-              return merged;
+              return Array.from(commentMap.values());
             });
           }, 100);
         };
@@ -107,15 +97,22 @@ export default function useComments(videoUrl) {
   const addComment = async (comment) => {
     // Remove image data if present to avoid storage issues
     const { image, ...commentWithoutImage } = comment;
-    
+    const now = new Date().toISOString();
     const newComment = {
       ...commentWithoutImage,
       resolved: false,
-      createdAt: new Date().toISOString(),
-      id: Date.now().toString(), // Add unique ID for reliable updates
+      createdAt: now,
+      updatedAt: now,
+      id: comment.id || Date.now().toString(), // Add unique ID for reliable updates
     };
-    
-    setComments((prev) => [...prev, newComment]);
+    setComments((prev) => {
+      // Replace if id exists, else add
+      const idx = prev.findIndex(c => c.id === newComment.id);
+      if (idx === -1) return [...prev, newComment];
+      const updated = [...prev];
+      updated[idx] = newComment;
+      return updated;
+    });
   };
 
   const deleteComment = (index) => {

@@ -56,7 +56,6 @@ export class CommentSync {
     try {
       // Ensure comments is an array
       const validComments = Array.isArray(comments) ? comments : [];
-      
       // Get existing comments from storage
       const stored = localStorage.getItem(this.storageKey);
       let existingComments = [];
@@ -68,24 +67,19 @@ export class CommentSync {
           console.warn('Failed to parse stored comments:', e);
         }
       }
-
-      // Merge comments, keeping the most recent version of each
-      const merged = [...existingComments];
-      validComments.forEach(newComment => {
-        const index = merged.findIndex(c => c.id === newComment.id);
-        if (index === -1) {
-          merged.push(newComment);
-        } else if (newComment.createdAt > merged[index].createdAt) {
-          merged[index] = newComment;
+      // Use a map to deduplicate by id, always keep the latest version
+      const commentMap = new Map();
+      [...existingComments, ...validComments].forEach(c => {
+        if (!c.id) return;
+        if (!commentMap.has(c.id) || (c.updatedAt && c.updatedAt > (commentMap.get(c.id)?.updatedAt || ''))) {
+          commentMap.set(c.id, c);
         }
       });
-      
+      const merged = Array.from(commentMap.values());
       // Save merged comments to localStorage
       this._saveToStorage(merged);
-      
       // Broadcast merged comments
       this.channel.postMessage({ type: 'update', data: merged });
-      
       // Broadcast to P2P peers
       this.p2p.broadcast({ type: 'update', data: merged });
     } catch (err) {
