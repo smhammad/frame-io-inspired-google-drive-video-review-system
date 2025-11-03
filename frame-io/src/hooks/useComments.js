@@ -1,51 +1,70 @@
 import { useEffect, useState } from "react";
+import { getDriveFileId, fetchCommentsFromDrive, saveCommentsToDrive } from "../utils/driveComments";
 
-const STORAGE_KEY = "drive-review-comments-v1";
-
-export default function useComments() {
+export default function useComments(videoUrl) {
   const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const fileId = getDriveFileId(videoUrl);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY) || "[]";
-      const saved = JSON.parse(raw);
-      if (Array.isArray(saved)) setComments(saved);
-      else setComments([]);
-    } catch (err) {
-      console.warn('[useComments] failed to read saved comments, resetting to empty', err);
-      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    if (!fileId) {
       setComments([]);
+      setLoading(false);
+      return;
     }
-  }, []);
+
+    const loadComments = async () => {
+      setLoading(true);
+      const fetchedComments = await fetchCommentsFromDrive(fileId);
+      setComments(fetchedComments);
+      setLoading(false);
+    };
+
+    loadComments();
+  }, [fileId]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(comments));
-    } catch (err) {
-      // Likely quota exceeded due to base64 thumbnails. Try to persist without images as a fallback.
-      try {
-        console.warn('[useComments] localStorage write failed, stripping images and retrying', err);
-        const stripped = comments.map((c) => ({ ...c, image: undefined }));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
-      } catch (err2) {
-        console.error('[useComments] persistent storage failed', err2);
-        // Last resort: don't block app; continue without persisting
-      }
-    }
-  }, [comments]);
+    if (!fileId || loading) return;
 
-  // debug: log when comments are added
-  const addComment = (c) => {
-    try { console.debug('[useComments] addComment', c); } catch {}
-    setComments((prev) => [...prev, c]);
+    const saveComments = async () => {
+      await saveCommentsToDrive(fileId, comments);
+    };
+
+    saveComments();
+  }, [comments, fileId, loading]);
+
+  const addComment = async (comment) => {
+    const newComment = {
+      ...comment,
+      resolved: false,
+      createdAt: new Date().toISOString(),
+    };
+    
+    setComments((prev) => [...prev, newComment]);
   };
-  const deleteComment = (i) => setComments((prev) => prev.filter((_, idx) => idx !== i));
+
+  const deleteComment = (index) => {
+    setComments((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const toggleResolved = (index) => {
+    setComments((prev) => 
+      prev.map((comment, idx) => 
+        idx === index 
+          ? { ...comment, resolved: !comment.resolved }
+          : comment
+      )
+    );
+  };
+
   const clearAll = () => setComments([]);
 
   const exportComments = (rows) => {
-    const header = "timestamp_seconds,timestamp_hhmmss,comment\n";
+    const header = "timestamp_seconds,timestamp_hhmmss,comment,status\n";
     const body = rows
-      .map((c) => `${c.time.toFixed(2)},${toHHMMSS(c.time)},"${escapeCsv(c.text)}"`)
+      .map((c) => 
+        `${c.time.toFixed(2)},${toHHMMSS(c.time)},"${escapeCsv(c.text)}",${c.resolved ? "resolved" : "active"}`
+      )
       .join("\n");
     const csv = header + body;
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -57,7 +76,15 @@ export default function useComments() {
     URL.revokeObjectURL(url);
   };
 
-  return { comments, addComment, deleteComment, exportComments, clearAll };
+  return {
+    comments,
+    loading,
+    addComment,
+    deleteComment,
+    toggleResolved,
+    clearAll,
+    exportComments,
+  };
 }
 
 function toHHMMSS(sec) {

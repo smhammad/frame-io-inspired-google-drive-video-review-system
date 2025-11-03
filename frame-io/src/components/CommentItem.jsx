@@ -1,23 +1,47 @@
 import Button from "./ui/button";
 
-export default function CommentItem({ data, onDelete, onSeek }) {
+export default function CommentItem({ data, onDelete, onSeek, onToggleResolved }) {
   return (
-    <div className="border border-border/60 rounded-xl p-3 bg-accent/30 hover:bg-accent/50 transition">
+    <div className={`border border-border/60 rounded-xl p-3 ${
+      data.resolved 
+        ? 'bg-green-950/30 hover:bg-green-950/50' 
+        : 'bg-accent/30 hover:bg-accent/50'
+    } transition`}>
       <div className="flex gap-3">
         <img
           src={data.image}
           alt="frame"
-          className="w-24 h-16 object-cover rounded-lg cursor-pointer"
+          className={`w-24 h-16 object-cover rounded-lg cursor-pointer ${
+            data.resolved ? 'opacity-70' : ''
+          }`}
           onClick={() => onSeek(data.time)}
         />
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <TimeBadge time={data.time} onClick={() => onSeek(data.time)} />
+            {data.resolved && (
+              <span className="text-xs text-green-500 font-medium">
+                Resolved
+              </span>
+            )}
           </div>
-          <div className="text-sm leading-snug opacity-95">{data.text}</div>
+          <div className={`text-sm leading-snug ${
+            data.resolved ? 'line-through opacity-75' : 'opacity-95'
+          }`}>
+            {data.text}
+          </div>
         </div>
-        <div className="flex items-start">
-          <Button variant="ghost" size="sm" onClick={onDelete}>Delete</Button>
+        <div className="flex items-start gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => onToggleResolved(data)}
+          >
+            {data.resolved ? 'Unresolve' : 'Resolve'}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onDelete}>
+            Delete
+          </Button>
         </div>
       </div>
     </div>

@@ -19,7 +19,7 @@ export default function App() {
   const videoRef = useRef(null);
   const [videoUrl, setVideoUrl] = useState("");
   const [duration, setDuration] = useState(1);
-  const { comments, addComment, deleteComment, exportComments, clearAll } = useComments();
+  const { comments, addComment, deleteComment, toggleResolved, exportComments, clearAll } = useComments(videoUrl);
   const [shareUrl, setShareUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -127,6 +127,7 @@ export default function App() {
                   comments={comments}
                   onDelete={deleteComment}
                   onSeek={seek}
+                  onToggleResolved={toggleResolved}
                 />
               </div>
             </CardContent>
