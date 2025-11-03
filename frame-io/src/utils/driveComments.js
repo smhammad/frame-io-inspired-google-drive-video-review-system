@@ -1,4 +1,5 @@
 // Google Drive Comments API integration
+const COMMENTS_FILE_NAME = 'frame-io-comments.json';
 
 // Function to extract file ID from drive link
 export function getDriveFileId(url) {
@@ -15,19 +16,6 @@ export function getDriveFileId(url) {
 
     return id;
   } catch {
-    return null;
-  }
-}
-
-// Function to get the permanent comments file ID for a video
-export async function getCommentsFileId(videoFileId) {
-  try {
-    const response = await fetch(`/api/drive/comments/file/${videoFileId}`);
-    if (!response.ok) throw new Error('Failed to get comments file ID');
-    const data = await response.json();
-    return data.commentsFileId;
-  } catch (error) {
-    console.error('Error getting comments file ID:', error);
     return null;
   }
 }

@@ -17,101 +17,25 @@ import ShareModal from "./components/ShareModal";
 
 export default function App() {
   const videoRef = useRef(null);
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [duration, setDuration] = useState(1);
   const { comments, addComment, deleteComment, toggleResolved, exportComments, clearAll } = useComments(videoUrl);
   const [shareUrl, setShareUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
-  
-  // Load shared video on mount
-  useEffect(() => {
-    if (initialLoadDone) return;
-    
-    try {
-      const currentUrl = new URL(window.location.href);
-      const shareParam = currentUrl.searchParams.get('share');
-      
-      if (shareParam) {
-        console.debug('[App] Found share parameter:', shareParam);
-        const decoded = decodeShare(shareParam);
-        
-        if (decoded && decoded.videoUrl) {
-          console.debug('[App] Setting initial video URL:', decoded.videoUrl);
-          setVideoUrl(decoded.videoUrl);
-        } else {
-          console.warn('[App] Invalid share data:', decoded);
-        }
-      }
-    } catch (err) {
-      console.error('[App] Error loading shared video:', err);
-    }
-    
-    setInitialLoadDone(true);
-  }, []);
 
-  const generateShareLink = async () => {
-    try {
-      if (!videoUrl) {
-        alert('Please enter a video URL first');
-        return;
-      }
-
-      // Create share data with absolute video URL
-      const shareData = {
-        videoUrl: videoUrl,
-        timestamp: new Date().toISOString()
-      };
-
-      console.debug('[App] Creating share data:', shareData);
-      const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
-      
-      if (!encoded) {
-        console.error('[App] Failed to encode share data');
-        throw new Error('Failed to encode share data');
-      }
-      
-      // Create absolute URL with origin
-      const baseUrl = window.location.origin;
-      const url = new URL(baseUrl);
-      url.searchParams.set('share', encoded);
-      
-      const finalUrl = url.toString();
-      console.debug('[App] Generated share URL:', finalUrl);
-      
-      setShareUrl(finalUrl);
-      setShareOpen(true);
-    } catch (err) {
-      console.error('Share link generation failed:', err);
-      alert('Failed to generate share link. Please make sure the video URL is valid.');
-    }
-  };
-
-  // If the app is opened with a share payload, load the video
+  // If the app is opened with a share payload, load the video and comments
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const s = params.get('share');
-      if (!s) {
-        console.debug('[App] No share parameter found');
-        return;
-      }
-      
-      console.debug('[App] Decoding share payload:', s);
+      if (!s) return;
       const payload = decodeShare(s);
-      
-      if (!payload) {
-        console.warn('[App] Failed to decode share payload');
-        return;
-      }
-      
-      console.debug('[App] Decoded payload:', payload);
-      
-      if (payload.videoUrl) {
-        console.debug('[App] Setting video URL:', payload.videoUrl);
-        setVideoUrl(payload.videoUrl);
-      } else {
-        console.warn('[App] No video URL in payload');
+      if (!payload) return;
+      if (payload.videoUrl) setVideoUrl(payload.videoUrl);
+      if (Array.isArray(payload.comments) && payload.comments.length) {
+        // replace existing comments with shared ones
+        clearAll();
+        payload.comments.forEach((c) => addComment(c));
       }
     } catch (err) {
       console.warn('failed to load share payload', err);

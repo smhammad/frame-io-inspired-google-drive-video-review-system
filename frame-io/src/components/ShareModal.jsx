@@ -5,15 +5,10 @@ export default function ShareModal({ open, onClose, url }) {
 
   const handleCopy = async () => {
     try {
-      if (!url) {
-        throw new Error('No URL to copy');
-      }
-
-      console.debug('[ShareModal] Copying URL:', url);
       await navigator.clipboard.writeText(url);
-      alert('Link copied to clipboard! This link will open the video directly when shared.');
+      alert('Link copied to clipboard');
     } catch (err) {
-      console.error('[ShareModal] Copy failed:', err);
+      console.error('copy failed', err);
       alert('Failed to copy link');
     }
   };
