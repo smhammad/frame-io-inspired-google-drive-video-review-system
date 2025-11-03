@@ -126,17 +126,31 @@ const VideoPlayer = forwardRef(function VideoPlayer({ videoUrl, onAddComment, on
 
   return (
     <div className="relative">
-      <video
-        ref={innerRef}
-        controls
-        playsInline
-        crossOrigin="anonymous"
-        src={videoUrl}
-        onPause={handlePause}
-        onError={handleError}
-        className="w-full rounded-xl2 border border-border shadow-soft"
-        style={{ aspectRatio: "16 / 9", background: "linear-gradient(180deg,#0f131a,#0b0b0d)" }}
-      />
+      {videoUrl ? (
+        <video
+          key={videoUrl} // Force remount when URL changes
+          ref={innerRef}
+          controls
+          playsInline
+          crossOrigin="anonymous"
+          src={videoUrl}
+          onPause={handlePause}
+          onError={handleError}
+          onLoadStart={() => console.debug('[VideoPlayer] Loading video:', videoUrl)}
+          onCanPlay={() => console.debug('[VideoPlayer] Video can play')}
+          className="w-full rounded-xl2 border border-border shadow-soft"
+          style={{ aspectRatio: "16 / 9", background: "linear-gradient(180deg,#0f131a,#0b0b0d)" }}
+        />
+      ) : (
+        <div 
+          className="w-full rounded-xl2 border border-border shadow-soft grid place-items-center"
+          style={{ aspectRatio: "16 / 9", background: "linear-gradient(180deg,#0f131a,#0b0b0d)" }}
+        >
+          <div className="text-muted-foreground">
+            No video loaded
+          </div>
+        </div>
+      )}
 
       <CommentEditor open={editorState.open} time={editorState.time} image={editorState.image} onSave={handleEditorSave} onCancel={handleEditorCancel} />
 

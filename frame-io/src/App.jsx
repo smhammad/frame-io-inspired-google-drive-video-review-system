@@ -17,11 +17,38 @@ import ShareModal from "./components/ShareModal";
 
 export default function App() {
   const videoRef = useRef(null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [duration, setDuration] = useState(1);
   const { comments, addComment, deleteComment, toggleResolved, exportComments, clearAll } = useComments(videoUrl);
   const [shareUrl, setShareUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
+  
+  // Load shared video on mount
+  useEffect(() => {
+    if (initialLoadDone) return;
+    
+    try {
+      const currentUrl = new URL(window.location.href);
+      const shareParam = currentUrl.searchParams.get('share');
+      
+      if (shareParam) {
+        console.debug('[App] Found share parameter:', shareParam);
+        const decoded = decodeShare(shareParam);
+        
+        if (decoded && decoded.videoUrl) {
+          console.debug('[App] Setting initial video URL:', decoded.videoUrl);
+          setVideoUrl(decoded.videoUrl);
+        } else {
+          console.warn('[App] Invalid share data:', decoded);
+        }
+      }
+    } catch (err) {
+      console.error('[App] Error loading shared video:', err);
+    }
+    
+    setInitialLoadDone(true);
+  }, []);
 
   const generateShareLink = async () => {
     try {
@@ -30,20 +57,29 @@ export default function App() {
         return;
       }
 
-      console.debug('[App] Generating share link for video:', videoUrl);
-      const encoded = await encodeShare(videoUrl);
+      // Create share data with absolute video URL
+      const shareData = {
+        videoUrl: videoUrl,
+        timestamp: new Date().toISOString()
+      };
+
+      console.debug('[App] Creating share data:', shareData);
+      const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
       
       if (!encoded) {
         console.error('[App] Failed to encode share data');
         throw new Error('Failed to encode share data');
       }
       
-      // Remove any existing share parameter and add the new one
-      const url = new URL(window.location.origin + window.location.pathname);
+      // Create absolute URL with origin
+      const baseUrl = window.location.origin;
+      const url = new URL(baseUrl);
       url.searchParams.set('share', encoded);
       
-      console.debug('[App] Generated share URL:', url.toString());
-      setShareUrl(url.toString());
+      const finalUrl = url.toString();
+      console.debug('[App] Generated share URL:', finalUrl);
+      
+      setShareUrl(finalUrl);
       setShareOpen(true);
     } catch (err) {
       console.error('Share link generation failed:', err);
