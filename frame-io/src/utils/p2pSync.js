@@ -171,7 +171,10 @@ export class P2PSync {
   // Update URL hash with signaling data
   _updateHash(data) {
     const hash = encodeURIComponent(JSON.stringify(data));
-    window.location.hash = hash;
+    // Use history.replaceState to update hash without causing navigation
+    const url = new URL(window.location.href);
+    url.hash = hash;
+    history.replaceState(null, '', url.toString());
   }
 
   // Clean up connections
